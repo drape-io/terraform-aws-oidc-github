@@ -157,6 +157,8 @@ run "test_iam_role_attach_policies" {
 }
 
 run "test_empty_conditions_fails" {
+  command = plan
+
   module {
     source = "./modules/role"
   }
