@@ -1,19 +1,11 @@
-# This was copied from `drape-io/terraform-null-context` since it'll be passed
-# along to it.
 variable "context" {
-  type = object({
-    enabled    = optional(bool)
-    group      = optional(string)
-    tenant     = optional(string)
-    env        = optional(string)
-    scope      = optional(string)
-    attributes = optional(list(string))
-    tags       = optional(map(string))
-  })
-  description = <<-EOT
-    Used to pass an object of any of the variables used to this module.  It is
-    used to seed the module with labels from another context.
-  EOT
+  type        = any
+  description = "Context object passed to terraform-null-context for labeling and tagging."
+}
+
+variable "oidc_provider_arn" {
+  description = "ARN of the GitHub OIDC provider created by the provider submodule"
+  type        = string
 }
 
 variable "repo" {
@@ -31,8 +23,8 @@ variable "repo" {
   }
 }
 
-variable "tags" {
-  description = "Tags on the repo that should have access to AWS"
+variable "git_tags" {
+  description = "Git tags on the repo that should have access to AWS"
   type        = list(string)
   default     = []
 }
@@ -58,8 +50,7 @@ variable "allow_all" {
 variable "max_session_duration" {
   description = "Maximum session duration (in seconds) that you want for the github session."
   type        = number
-  # Default to 70minutes.
-  default = 4200
+  default     = 4200
 
   validation {
     condition     = var.max_session_duration >= 3600 && var.max_session_duration <= 43200
@@ -75,6 +66,12 @@ variable "role_policies" {
 
 variable "attach_policies" {
   default     = []
-  description = "A list of arns to attach to the iam role."
+  description = "A list of IAM policy ARNs to attach to the role."
   type        = list(string)
+}
+
+variable "permissions_boundary" {
+  default     = null
+  description = "ARN of the permissions boundary policy to attach to the role."
+  type        = string
 }

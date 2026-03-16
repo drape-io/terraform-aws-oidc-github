@@ -14,12 +14,12 @@ data "aws_iam_policy_document" "example" {
 data "aws_partition" "current" {}
 
 output "policy" {
-  value       = data.aws_iam_policy_document.example.json
+  value = data.aws_iam_policy_document.example.json
 }
 
 output "policy_arns" {
-    value = [
-        "arn:${data.aws_partition.current.partition}:iam::aws:policy/AdministratorAccess",
-        "arn:${data.aws_partition.current.partition}:iam::aws:policy/ReadOnlyAccess"
-    ]
+  value = [
+    "arn:${data.aws_partition.current.partition}:iam::aws:policy/AdministratorAccess",
+    "arn:${data.aws_partition.current.partition}:iam::aws:policy/ReadOnlyAccess"
+  ]
 }
