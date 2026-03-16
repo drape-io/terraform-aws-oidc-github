@@ -45,7 +45,7 @@ run "test_branch_ref" {
 
   assert {
     condition = contains(
-      jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"],
+      flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]]),
       "repo:drape-io/terraform-aws-account:ref:refs/heads/main"
     )
     error_message = "Default branch ref for main wasn't generated"
@@ -68,7 +68,7 @@ run "test_complete_refs" {
 
   assert {
     condition = contains(
-      jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"],
+      flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]]),
       "repo:drape-io/terraform-aws-account:ref:refs/heads/production"
     )
     error_message = "Branches weren't allowed properly"
@@ -76,7 +76,7 @@ run "test_complete_refs" {
 
   assert {
     condition = contains(
-      jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"],
+      flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]]),
       "repo:drape-io/terraform-aws-account:ref:refs/tags/v1.0.0"
     )
     error_message = "Tags weren't allowed properly"
@@ -84,7 +84,7 @@ run "test_complete_refs" {
 
   assert {
     condition = contains(
-      jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"],
+      flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]]),
       "repo:drape-io/terraform-aws-account:pull_request"
     )
     error_message = "Pull requests weren't allowed properly"
@@ -106,7 +106,7 @@ run "test_allow_all" {
 
   assert {
     condition = contains(
-      jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"],
+      flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]]),
       "repo:drape-io/terraform-aws-account:*"
     )
     error_message = "allow_all should generate a wildcard condition"

@@ -31,7 +31,7 @@ run "test_provider_created" {
   }
 
   assert {
-    condition     = output.oidc_provider.url == "https://token.actions.githubusercontent.com"
+    condition     = output.oidc_provider.url == "token.actions.githubusercontent.com"
     error_message = "OIDC provider URL should be the GitHub Actions token endpoint"
   }
 
