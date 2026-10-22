@@ -140,6 +140,242 @@ run "test_empty_conditions_fails" {
   ]
 }
 
+run "test_default_branch_only_without_other_selectors" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    git_tags = ["v*"]
+  }
+
+  assert {
+    condition     = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset(["repo:drape-io/terraform-aws-account:ref:refs/tags/v*"])
+    error_message = "The main default should not apply when git_tags is set"
+  }
+}
+
+run "test_environments" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    environments = ["production"]
+  }
+
+  assert {
+    condition     = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset(["repo:drape-io/terraform-aws-account:environment:production"])
+    error_message = "Only the environment subject should be trusted"
+  }
+}
+
+run "test_immutable_ids" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    repo_owner_id = 123456
+    repo_id       = 456789
+    environments  = ["production"]
+    branches      = ["main"]
+  }
+
+  assert {
+    condition = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset([
+      "repo:drape-io/terraform-aws-account:ref:refs/heads/main",
+      "repo:drape-io/terraform-aws-account:environment:production",
+      "repo:drape-io@123456/terraform-aws-account@456789:ref:refs/heads/main",
+      "repo:drape-io@123456/terraform-aws-account@456789:environment:production",
+    ])
+    error_message = "Name and ID subjects should both be trusted"
+  }
+}
+
+run "test_immutable_ids_skipped_for_immutable_repo" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    repo          = "octo-org@123456/octo-repo@456789"
+    repo_owner_id = 123456
+    repo_id       = 456789
+  }
+
+  assert {
+    condition     = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset(["repo:octo-org@123456/octo-repo@456789:ref:refs/heads/main"])
+    error_message = "No second prefix should be added when repo is already in the immutable form"
+  }
+}
+
+run "test_immutable_ids_need_both" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    repo_owner_id = 123456
+  }
+
+  expect_failures = [
+    aws_iam_role.github,
+  ]
+}
+
+run "test_long_role_name" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    context = { group = "myorganization", tenant = "platform", env = "production", scope = "deploy" }
+    repo    = "my-org/my-quite-long-repository-name"
+  }
+
+  assert {
+    condition     = output.role.name == "myorganization-platform-production-deploy-github-my-org-${substr(sha1("myorganization-platform-production-deploy-github-my-org-my-quite-long-repository-name"), 0, 8)}"
+    error_message = "Names over 64 characters should be a 55-character prefix plus a hash"
+  }
+
+  assert {
+    condition     = length(output.role.name) == 64
+    error_message = "The shortened name should be 64 characters"
+  }
+}
+
+run "test_branches_reject_colon" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    branches = ["main:environment:prod"]
+  }
+
+  expect_failures = [
+    var.branches,
+  ]
+}
+
+run "test_git_tags_reject_colon" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    git_tags = ["v1:pull_request"]
+  }
+
+  expect_failures = [
+    var.git_tags,
+  ]
+}
+
+run "test_environments_reject_colon" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    environments = ["prod:x"]
+  }
+
+  expect_failures = [
+    var.environments,
+  ]
+}
+
+run "test_attach_policies_quota" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    attach_policies = [for i in range(26) : "arn:aws:iam::123456789012:policy/p${i}"]
+  }
+
+  expect_failures = [
+    var.attach_policies,
+  ]
+}
+
+run "test_role_policies_size" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    role_policies = { big = jsonencode({ Statement = [{ Effect = "Allow", Action = "s3:GetObject", Resource = [for i in range(400) : "arn:aws:s3:::bucket-${i}/*"] }] }) }
+  }
+
+  expect_failures = [
+    var.role_policies,
+  ]
+}
+
+run "test_inline_policies_managed_exclusively" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    role_policies = { "default" : run.setup.policy }
+  }
+
+  assert {
+    condition     = keys(aws_iam_role_policy.github) == ["default"]
+    error_message = "Each role_policies entry should be an aws_iam_role_policy"
+  }
+
+  assert {
+    condition     = aws_iam_role_policies_exclusive.github[0].policy_names == toset(["default"])
+    error_message = "Exclusive management should list the configured policy names"
+  }
+}
+
+run "test_no_inline_policies_removes_all" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    role_policies = {}
+  }
+
+  assert {
+    condition     = length(aws_iam_role_policies_exclusive.github[0].policy_names) == 0
+    error_message = "An empty role_policies should remove every inline policy"
+  }
+}
+
 run "test_repo_accepts_valid_names" {
   command = plan
 
