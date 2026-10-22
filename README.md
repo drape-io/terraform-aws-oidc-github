@@ -164,9 +164,10 @@ The role trusts tokens whose `sub` claim matches `repo:<owner>/<repo>:` followed
 Branch and tag values are `StringLike` patterns: `*` matches any sequence of characters, including `/`, and `?` matches one character.
 
 - **Pull requests.** Anyone who can open a pull request that runs workflows can change the workflow it runs. If you set `allow_pull_requests`, give pull requests their own role with read-only policies. Do not share the role that deploys from `main`.
+- **Default branch events.** Workflows triggered by `workflow_run` or `issue_comment` run on the default branch and get its `ref:` subject. If you trust that branch, those jobs can assume the role, so they must not run code from a pull request.
 - **Environments.** A job that sets `environment:` gets the subject `repo:<owner>/<repo>:environment:<name>`, not a `ref:` subject. Only `allow_all` matches it.
 - **Immutable subjects.** GitHub uses the format `repo:<owner>@<owner-id>/<repo>@<repo-id>:...` for repositories created after July 15, 2026, for repositories renamed or transferred after that date, and for repositories that opt in. This module builds subjects from names only, so such a repository cannot assume the role.
-- **Custom subject claims.** The module expects GitHub's default `sub` format. If your organization or repository customizes the `sub` claim, no subject matches.
+- **Custom subject claims.** The module builds subjects for GitHub's default `sub` format. If your organization or repository customizes the `sub` claim, matching depends on the template. A template that starts with `repo` still matches `allow_all`, and a `*` in a branch or tag pattern also matches the claims that follow the ref. Use wildcards only with the default format.
 - **AWS China.** The audience is `sts.<partition DNS suffix>`, which is `sts.amazonaws.com.cn` in `aws-cn`. Set `audience: sts.amazonaws.com.cn` on `configure-aws-credentials` there.
 
 ## Testing
