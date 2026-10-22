@@ -148,7 +148,7 @@ Creates an IAM role that can be assumed by GitHub Actions via OIDC.
 |--------|-------------|
 | role | The IAM role resource |
 | policy_document | The assume role policy document |
-| policy_attachments | Map of attached policy ARNs |
+| policy_attachments | Map of attached policy ARNs to their attachment resources |
 
 ## Trust policy notes
 

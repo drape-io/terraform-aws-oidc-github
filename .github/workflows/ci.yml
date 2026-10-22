@@ -26,9 +26,11 @@ jobs:
       - uses: actions/checkout@v6
       - uses: hashicorp/setup-terraform@v4
       - name: Validate provider module
-        run: cd modules/provider && terraform init -backend=false && terraform validate
+        working-directory: modules/provider
+        run: terraform init -backend=false && terraform validate
       - name: Validate role module
-        run: cd modules/role && terraform init -backend=false && terraform validate
+        working-directory: modules/role
+        run: terraform init -backend=false && terraform validate
 
   test:
     name: Terraform Test (${{ matrix.terraform }})
