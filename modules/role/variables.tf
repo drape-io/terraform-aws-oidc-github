@@ -16,7 +16,7 @@ variable "repo" {
   # or the ':' that separates sub claim fields, so rejecting anything outside
   # GitHub's character set keeps the trust policy scoped to exactly one repo.
   validation {
-    condition     = can(regex("^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$", var.repo))
+    condition     = can(regex("^[A-Za-z0-9_-]+/[A-Za-z0-9._-]+$", var.repo))
     error_message = "repo must be <owner>/<repo> using only characters GitHub allows in names (no wildcards, ':' or extra '/')."
   }
 }

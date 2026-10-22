@@ -140,6 +140,23 @@ run "test_empty_conditions_fails" {
   ]
 }
 
+run "test_repo_accepts_managed_user_owner" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    repo = "octocat_acme/app.v2"
+  }
+
+  assert {
+    condition     = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset(["repo:octocat_acme/app.v2:ref:refs/heads/main"])
+    error_message = "Owners with an underscore (Enterprise Managed Users) should be accepted"
+  }
+}
+
 run "test_repo_rejects_star" {
   command = plan
 
