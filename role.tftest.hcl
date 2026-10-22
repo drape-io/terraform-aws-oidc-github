@@ -140,7 +140,7 @@ run "test_empty_conditions_fails" {
   ]
 }
 
-run "test_repo_accepts_managed_user_owner" {
+run "test_repo_accepts_valid_names" {
   command = plan
 
   module {
@@ -148,12 +148,12 @@ run "test_repo_accepts_managed_user_owner" {
   }
 
   variables {
-    repo = "octocat_acme/app.v2"
+    repo = "octocat_acme/my.repo_name"
   }
 
   assert {
-    condition     = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset(["repo:octocat_acme/app.v2:ref:refs/heads/main"])
-    error_message = "Owners with an underscore (Enterprise Managed Users) should be accepted"
+    condition     = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset(["repo:octocat_acme/my.repo_name:ref:refs/heads/main"])
+    error_message = "Underscore owners (Enterprise Managed Users) and repo names with . and _ should be accepted"
   }
 }
 
