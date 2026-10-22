@@ -313,7 +313,7 @@ run "test_attach_policies_quota" {
   }
 
   variables {
-    attach_policies = [for i in range(26) : "arn:aws:iam::123456789012:policy/p${i}"]
+    attach_policies = run.setup.too_many_policy_arns
   }
 
   expect_failures = [
@@ -329,7 +329,7 @@ run "test_role_policies_size" {
   }
 
   variables {
-    role_policies = { big = jsonencode({ Statement = [{ Effect = "Allow", Action = "s3:GetObject", Resource = [for i in range(400) : "arn:aws:s3:::bucket-${i}/*"] }] }) }
+    role_policies = { big = run.setup.oversized_policy }
   }
 
   expect_failures = [
