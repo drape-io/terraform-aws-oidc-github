@@ -31,16 +31,17 @@ jobs:
         run: cd modules/role && terraform init -backend=false && terraform validate
 
   test:
-    name: Terraform Test
+    name: Terraform Test (${{ matrix.terraform }})
     needs: [validate]
     runs-on: ubuntu-latest
-    services:
-      localstack:
-        image: localstack/localstack:latest
-        ports:
-          - 4566:4566
+    strategy:
+      matrix:
+        # The oldest supported release and the newest.
+        terraform: ["1.6.6", "latest"]
     steps:
       - uses: actions/checkout@v6
       - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ matrix.terraform }}
       - run: terraform init
       - run: terraform test

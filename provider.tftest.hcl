@@ -1,6 +1,8 @@
+# Plan-only: no AWS account or emulator is needed. The endpoints point at an
+# unroutable address so an accidental API call fails instead of reaching AWS.
 provider "aws" {
-  access_key = "dev-tfstate-backend"
-  secret_key = "dev-tfstate-backend"
+  access_key = "test"
+  secret_key = "test"
   region     = "us-east-1"
 
   skip_credentials_validation = true
@@ -8,12 +10,14 @@ provider "aws" {
   skip_requesting_account_id  = true
 
   endpoints {
-    iam = "http://localhost:4566"
-    sts = "http://localhost:4566"
+    iam = "http://127.0.0.1:1"
+    sts = "http://127.0.0.1:1"
   }
 }
 
 run "test_provider_created" {
+  command = plan
+
   module {
     source = "./modules/provider"
   }
@@ -26,22 +30,24 @@ run "test_provider_created" {
   }
 
   assert {
-    condition     = output.oidc_provider != null
+    condition     = length(aws_iam_openid_connect_provider.github) == 1
     error_message = "OIDC provider should be created"
   }
 
   assert {
-    condition     = output.oidc_provider.url == "token.actions.githubusercontent.com"
+    condition     = aws_iam_openid_connect_provider.github[0].url == "https://token.actions.githubusercontent.com"
     error_message = "OIDC provider URL should be the GitHub Actions token endpoint"
   }
 
   assert {
-    condition     = output.arn != null
-    error_message = "OIDC provider ARN should be output"
+    condition     = aws_iam_openid_connect_provider.github[0].client_id_list == toset(["sts.amazonaws.com"])
+    error_message = "OIDC provider client ID should be the STS audience"
   }
 }
 
 run "test_provider_disabled" {
+  command = plan
+
   module {
     source = "./modules/provider"
   }

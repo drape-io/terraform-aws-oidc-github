@@ -1,6 +1,8 @@
+# Plan-only: no AWS account or emulator is needed. The endpoints point at an
+# unroutable address so an accidental API call fails instead of reaching AWS.
 provider "aws" {
-  access_key = "dev-tfstate-backend"
-  secret_key = "dev-tfstate-backend"
+  access_key = "test"
+  secret_key = "test"
   region     = "us-east-1"
 
   skip_credentials_validation = true
@@ -8,58 +10,55 @@ provider "aws" {
   skip_requesting_account_id  = true
 
   endpoints {
-    iam = "http://localhost:4566"
-    sts = "http://localhost:4566"
+    iam = "http://127.0.0.1:1"
+    sts = "http://127.0.0.1:1"
   }
 }
 
-run "provider" {
-  module {
-    source = "./modules/provider"
-  }
-
-  variables {
-    context = {
-      group = "drape"
-      env   = "dev"
-    }
-  }
+variables {
+  oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
 }
 
 run "setup" {
+  command = plan
+
   module {
     source = "./tests/setup"
   }
 }
 
 run "test_branch_ref" {
+  command = plan
+
   module {
     source = "./modules/role"
   }
 
   variables {
-    context           = { group = "drape", env = "dev" }
-    oidc_provider_arn = run.provider.arn
-    repo              = "drape-io/terraform-aws-account"
+    context = { group = "drape", env = "dev" }
+    repo    = "drape-io/terraform-aws-account"
   }
 
   assert {
-    condition = contains(
-      flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]]),
-      "repo:drape-io/terraform-aws-account:ref:refs/heads/main"
-    )
-    error_message = "Default branch ref for main wasn't generated"
+    condition     = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset(["repo:drape-io/terraform-aws-account:ref:refs/heads/main"])
+    error_message = "Only the default main branch should be trusted"
+  }
+
+  assert {
+    condition     = jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringEquals"]["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com"
+    error_message = "Audience should be the STS client ID"
   }
 }
 
 run "test_complete_refs" {
+  command = plan
+
   module {
     source = "./modules/role"
   }
 
   variables {
     context             = { group = "drape", env = "dev" }
-    oidc_provider_arn   = run.provider.arn
     repo                = "drape-io/terraform-aws-account"
     git_tags            = ["v1.0.0"]
     branches            = ["production"]
@@ -67,61 +66,45 @@ run "test_complete_refs" {
   }
 
   assert {
-    condition = contains(
-      flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]]),
-      "repo:drape-io/terraform-aws-account:ref:refs/heads/production"
-    )
-    error_message = "Branches weren't allowed properly"
-  }
-
-  assert {
-    condition = contains(
-      flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]]),
-      "repo:drape-io/terraform-aws-account:ref:refs/tags/v1.0.0"
-    )
-    error_message = "Tags weren't allowed properly"
-  }
-
-  assert {
-    condition = contains(
-      flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]]),
-      "repo:drape-io/terraform-aws-account:pull_request"
-    )
-    error_message = "Pull requests weren't allowed properly"
+    condition = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset([
+      "repo:drape-io/terraform-aws-account:ref:refs/heads/production",
+      "repo:drape-io/terraform-aws-account:ref:refs/tags/v1.0.0",
+      "repo:drape-io/terraform-aws-account:pull_request",
+    ])
+    error_message = "Branches, tags and pull requests should be trusted, and nothing else"
   }
 }
 
 run "test_allow_all" {
+  command = plan
+
   module {
     source = "./modules/role"
   }
 
   variables {
-    context           = { group = "drape", env = "dev" }
-    oidc_provider_arn = run.provider.arn
-    repo              = "drape-io/terraform-aws-account"
-    allow_all         = true
-    branches          = []
+    context   = { group = "drape", env = "dev" }
+    repo      = "drape-io/terraform-aws-account"
+    allow_all = true
+    branches  = []
   }
 
   assert {
-    condition = contains(
-      flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]]),
-      "repo:drape-io/terraform-aws-account:*"
-    )
-    error_message = "allow_all should generate a wildcard condition"
+    condition     = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset(["repo:drape-io/terraform-aws-account:*"])
+    error_message = "allow_all should generate a single wildcard condition"
   }
 }
 
 run "test_iam_role_name" {
+  command = plan
+
   module {
     source = "./modules/role"
   }
 
   variables {
-    context           = { group = "drape", env = "dev" }
-    oidc_provider_arn = run.provider.arn
-    repo              = "drape-io/terraform-aws-account"
+    context = { group = "drape", env = "dev" }
+    repo    = "drape-io/terraform-aws-account"
     role_policies = {
       "default" : run.setup.policy
     }
@@ -134,15 +117,16 @@ run "test_iam_role_name" {
 }
 
 run "test_iam_role_attach_policies" {
+  command = plan
+
   module {
     source = "./modules/role"
   }
 
   variables {
-    context           = { group = "drape", env = "dev" }
-    oidc_provider_arn = run.provider.arn
-    repo              = "drape-io/terraform-aws-account"
-    attach_policies   = run.setup.policy_arns
+    context         = { group = "drape", env = "dev" }
+    repo            = "drape-io/terraform-aws-account"
+    attach_policies = run.setup.policy_arns
   }
 
   assert {
@@ -165,7 +149,6 @@ run "test_empty_conditions_fails" {
 
   variables {
     context             = { group = "drape", env = "dev" }
-    oidc_provider_arn   = run.provider.arn
     repo                = "drape-io/terraform-aws-account"
     branches            = []
     allow_all           = false
@@ -178,14 +161,15 @@ run "test_empty_conditions_fails" {
 }
 
 run "test_role_disabled" {
+  command = plan
+
   module {
     source = "./modules/role"
   }
 
   variables {
-    context           = { enabled = false, group = "drape", env = "dev" }
-    oidc_provider_arn = run.provider.arn
-    repo              = "drape-io/terraform-aws-account"
+    context = { enabled = false, group = "drape", env = "dev" }
+    repo    = "drape-io/terraform-aws-account"
   }
 
   assert {

@@ -152,13 +152,9 @@ Creates an IAM role that can be assumed by GitHub Actions via OIDC.
 
 ## Testing
 
-Tests use [Terraform's native testing framework](https://developer.hashicorp.com/terraform/language/tests) with LocalStack:
+Tests use [Terraform's native testing framework](https://developer.hashicorp.com/terraform/language/tests). Every run is plan-only, so no AWS account, credentials or emulator is needed:
 
 ```bash
-# Start LocalStack
-docker run -d -p 4566:4566 localstack/localstack
-
-# Run tests
 terraform init
 terraform test
 ```
