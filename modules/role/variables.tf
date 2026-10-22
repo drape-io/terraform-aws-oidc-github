@@ -34,13 +34,13 @@ variable "branches" {
 }
 
 variable "allow_pull_requests" {
-  description = "Should pull requests have access to AWS"
+  description = "Allow workflows triggered by pull requests (sub repo:<owner>/<repo>:pull_request) to assume the role."
   type        = bool
   default     = false
 }
 
 variable "allow_all" {
-  description = "This allows all branches, tags, and pull requests AWS access"
+  description = "Trust every subject for the repo (repo:<owner>/<repo>:*): all branches, tags, pull requests and environments."
   type        = bool
   default     = false
 }

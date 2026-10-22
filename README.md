@@ -17,7 +17,7 @@ AWS enforces a single OIDC provider per URL per account, so the provider is crea
 
 ```hcl
 module "github_oidc_provider" {
-  source  = "github.com/drape-io/terraform-aws-oidc-github//modules/provider"
+  source = "github.com/drape-io/terraform-aws-oidc-github//modules/provider"
   context = {
     group = "myorg"
     env   = "production"
@@ -37,7 +37,7 @@ module "github_oidc_role" {
 
 ```hcl
 module "github_oidc_provider" {
-  source  = "github.com/drape-io/terraform-aws-oidc-github//modules/provider"
+  source = "github.com/drape-io/terraform-aws-oidc-github//modules/provider"
   context = {
     group = "myorg"
     env   = "production"
@@ -48,7 +48,7 @@ module "github_oidc_roles" {
   for_each = {
     "my-org/api"      = { branches = ["main"] }
     "my-org/frontend" = { branches = ["main", "staging"], git_tags = ["v*"] }
-    "my-org/infra"    = { branches = ["main"], allow_pull_requests = true }
+    "my-org/infra"    = { branches = ["main"] }
   }
 
   source            = "github.com/drape-io/terraform-aws-oidc-github//modules/role"
@@ -57,7 +57,6 @@ module "github_oidc_roles" {
   repo              = each.key
   branches          = each.value.branches
   git_tags          = try(each.value.git_tags, [])
-  allow_pull_requests = try(each.value.allow_pull_requests, false)
 }
 ```
 
@@ -89,16 +88,17 @@ module "github_oidc_role" {
 
 ### Use in GitHub Actions
 
-```yaml
-permissions:
-  id-token: write
-  contents: read
+Grant `id-token: write` only to the jobs that assume the role:
 
+```yaml
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
@@ -137,8 +137,8 @@ Creates an IAM role that can be assumed by GitHub Actions via OIDC.
 | repo | GitHub repository in `owner/repo` format | `string` | n/a | yes |
 | branches | Branches that should have access to AWS | `list(string)` | `["main"]` | no |
 | git_tags | Git tags that should have access to AWS | `list(string)` | `[]` | no |
-| allow_pull_requests | Allow pull requests to assume the role | `bool` | `false` | no |
-| allow_all | Allow all branches, tags, and pull requests | `bool` | `false` | no |
+| allow_pull_requests | Allow workflows triggered by pull requests to assume the role | `bool` | `false` | no |
+| allow_all | Trust every subject for the repo (`repo:<owner>/<repo>:*`): all branches, tags, pull requests and environments | `bool` | `false` | no |
 | max_session_duration | Maximum session duration in seconds (3600-43200) | `number` | `4200` | no |
 | role_policies | Inline IAM policies as key/value pairs | `map(string)` | `{}` | no |
 | attach_policies | List of IAM policy ARNs to attach to the role | `list(string)` | `[]` | no |
@@ -149,6 +149,25 @@ Creates an IAM role that can be assumed by GitHub Actions via OIDC.
 | role | The IAM role resource |
 | policy_document | The assume role policy document |
 | policy_attachments | Map of attached policy ARNs |
+
+## Trust policy notes
+
+The role trusts tokens whose `sub` claim matches `repo:<owner>/<repo>:` followed by one of these:
+
+| Input | Trusted `sub` |
+|-------|---------------|
+| `branches` | `ref:refs/heads/<branch>` |
+| `git_tags` | `ref:refs/tags/<tag>` |
+| `allow_pull_requests` | `pull_request` |
+| `allow_all` | `*` (any subject) |
+
+Branch and tag values are `StringLike` patterns: `*` matches any sequence of characters, including `/`, and `?` matches one character.
+
+- **Pull requests.** Anyone who can open a pull request that runs workflows can change the workflow it runs. If you set `allow_pull_requests`, give pull requests their own role with read-only policies. Do not share the role that deploys from `main`.
+- **Environments.** A job that sets `environment:` gets the subject `repo:<owner>/<repo>:environment:<name>`, not a `ref:` subject. Only `allow_all` matches it.
+- **Immutable subjects.** GitHub uses the format `repo:<owner>@<owner-id>/<repo>@<repo-id>:...` for repositories created after July 15, 2026, for repositories renamed or transferred after that date, and for repositories that opt in. This module builds subjects from names only, so such a repository cannot assume the role.
+- **Custom subject claims.** The module expects GitHub's default `sub` format. If your organization or repository customizes the `sub` claim, no subject matches.
+- **AWS China.** The audience is `sts.<partition DNS suffix>`, which is `sts.amazonaws.com.cn` in `aws-cn`. Set `audience: sts.amazonaws.com.cn` on `configure-aws-credentials` there.
 
 ## Testing
 
