@@ -9,7 +9,7 @@ variable "oidc_provider_arn" {
 }
 
 variable "repo" {
-  description = "GitHub repository to grant access to assume a role via OIDC"
+  description = "GitHub repository, in <owner>/<repo> format, whose workflows can assume the role."
   type        = string
 
   # GitHub names can't contain IAM StringLike wildcards (* and ?) or the ':'
@@ -21,13 +21,13 @@ variable "repo" {
 }
 
 variable "git_tags" {
-  description = "Git tags on the repo that should have access to AWS"
+  description = "Git tags whose workflows can assume the role. Values are IAM StringLike patterns."
   type        = list(string)
   default     = []
 }
 
 variable "branches" {
-  description = "Branches on the repo that should have access to AWS"
+  description = "Branches whose workflows can assume the role. Values are IAM StringLike patterns."
   type        = list(string)
   default     = ["main"]
 }
@@ -45,7 +45,7 @@ variable "allow_all" {
 }
 
 variable "max_session_duration" {
-  description = "Maximum session duration (in seconds) that you want for the github session."
+  description = "Maximum session duration for the role, in seconds (3600 to 43200)."
   type        = number
   default     = 4200
 
@@ -57,7 +57,7 @@ variable "max_session_duration" {
 
 variable "role_policies" {
   default     = {}
-  description = "Inline policies to attach to the role as a key/value pair"
+  description = "Inline policies for the role, as a map of policy name to policy JSON."
   type        = map(string)
 }
 

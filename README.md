@@ -1,15 +1,15 @@
 # terraform-aws-oidc-github
 
-Terraform module for creating an OIDC trust relationship between AWS and GitHub Actions. This allows GitHub Actions workflows to assume an IAM role without storing long-lived AWS credentials as secrets.
+This Terraform module creates OpenID Connect (OIDC) trust between AWS and GitHub Actions. Your workflows assume an IAM role directly, so you do not keep long-lived AWS credentials in repository secrets.
 
 ## Architecture
 
-This module is split into two submodules:
+The module has two submodules:
 
-- **`modules/provider`** — Creates the GitHub OIDC provider (one per AWS account)
-- **`modules/role`** — Creates an IAM role trusted by the OIDC provider (one per repo)
+- **`modules/provider`** creates the GitHub OIDC provider. Use one per AWS account.
+- **`modules/role`** creates an IAM role that trusts the OIDC provider. Use one per repository.
 
-AWS enforces a single OIDC provider per URL per account, so the provider is created once and shared across all roles.
+AWS allows one OIDC provider for each URL in an account. Create the provider once and pass its ARN to every role.
 
 ## Usage
 
@@ -128,19 +128,19 @@ Creates the GitHub Actions OIDC provider in your AWS account.
 
 ### `modules/role`
 
-Creates an IAM role that can be assumed by GitHub Actions via OIDC.
+Creates an IAM role that GitHub Actions workflows assume through OIDC.
 
 | Input | Description | Type | Default | Required |
 |-------|-------------|------|---------|----------|
 | context | Context object for labeling | `any` | n/a | yes |
 | oidc_provider_arn | ARN of the GitHub OIDC provider | `string` | n/a | yes |
 | repo | GitHub repository in `owner/repo` format | `string` | n/a | yes |
-| branches | Branches that should have access to AWS | `list(string)` | `["main"]` | no |
-| git_tags | Git tags that should have access to AWS | `list(string)` | `[]` | no |
+| branches | Branches whose workflows can assume the role | `list(string)` | `["main"]` | no |
+| git_tags | Git tags whose workflows can assume the role | `list(string)` | `[]` | no |
 | allow_pull_requests | Allow workflows triggered by pull requests to assume the role | `bool` | `false` | no |
 | allow_all | Trust every subject for the repo (`repo:<owner>/<repo>:*`): all branches, tags, pull requests and environments | `bool` | `false` | no |
-| max_session_duration | Maximum session duration in seconds (3600-43200) | `number` | `4200` | no |
-| role_policies | Inline IAM policies as key/value pairs | `map(string)` | `{}` | no |
+| max_session_duration | Maximum session duration in seconds (3600 to 43200) | `number` | `4200` | no |
+| role_policies | Inline IAM policies, as a map of policy name to policy JSON | `map(string)` | `{}` | no |
 | attach_policies | List of IAM policy ARNs to attach to the role | `list(string)` | `[]` | no |
 | permissions_boundary | ARN of the permissions boundary policy | `string` | `null` | no |
 
@@ -152,7 +152,7 @@ Creates an IAM role that can be assumed by GitHub Actions via OIDC.
 
 ## Trust policy notes
 
-The role trusts tokens whose `sub` claim matches `repo:<owner>/<repo>:` followed by one of these:
+The role trusts tokens whose `sub` claim is `repo:<owner>/<repo>:` plus one of these suffixes:
 
 | Input | Trusted `sub` |
 |-------|---------------|
@@ -161,18 +161,23 @@ The role trusts tokens whose `sub` claim matches `repo:<owner>/<repo>:` followed
 | `allow_pull_requests` | `pull_request` |
 | `allow_all` | `*` (any subject) |
 
-Branch and tag values are `StringLike` patterns: `*` matches any sequence of characters, including `/`, and `?` matches one character.
+Branch and tag values are `StringLike` patterns. `*` matches any sequence of characters, including `/`. `?` matches one character.
 
-- **Pull requests.** Anyone who can open a pull request that runs workflows can change the workflow it runs. If you set `allow_pull_requests`, give pull requests their own role with read-only policies. Do not share the role that deploys from `main`.
-- **Default branch events.** Workflows triggered by `workflow_run` or `issue_comment` run on the default branch and get its `ref:` subject. If you trust that branch, those jobs can assume the role, so they must not run code from a pull request.
+- **Pull requests.** A pull request can change the workflow that it runs. If you set `allow_pull_requests`, give pull requests their own role with read-only policies. Do not share the role that deploys from `main`.
+- **Default branch events.** `workflow_run` and `issue_comment` workflows run on the default branch and get its `ref:` subject. If you trust that branch, those jobs can assume the role. Do not let them run code from a pull request.
 - **Environments.** A job that sets `environment:` gets the subject `repo:<owner>/<repo>:environment:<name>`, not a `ref:` subject. Only `allow_all` matches it.
-- **Immutable subjects.** GitHub uses the format `repo:<owner>@<owner-id>/<repo>@<repo-id>:...` for repositories created after July 15, 2026, for repositories renamed or transferred after that date, and for repositories that opt in. This module builds subjects from names only, so such a repository cannot assume the role.
-- **Custom subject claims.** The module builds subjects for GitHub's default `sub` format. If your organization or repository customizes the `sub` claim, matching depends on the template. A template that starts with `repo` and adds more claims still matches `allow_all`, and a `*` in a branch or tag pattern also matches the claims that follow the ref. Use wildcards only with the default format.
+- **Immutable subjects.** GitHub uses the format `repo:<owner>@<owner-id>/<repo>@<repo-id>:...` for some repositories:
+  - repositories created after July 15, 2026
+  - repositories renamed or transferred after that date
+  - repositories that opt in
+
+  This module builds subjects from names only, so these repositories cannot assume the role.
+- **Custom subject claims.** The module builds subjects for GitHub's default `sub` format. If you customize the `sub` claim, matching depends on the template. A template that starts with `repo` and adds more claims still matches `allow_all`. A `*` in a branch or tag pattern also matches the claims after the ref. Use wildcards only with the default format.
 - **AWS China.** The audience is `sts.<partition DNS suffix>`, which is `sts.amazonaws.com.cn` in `aws-cn`. Set `audience: sts.amazonaws.com.cn` on `configure-aws-credentials` there.
 
 ## Testing
 
-Tests use [Terraform's native testing framework](https://developer.hashicorp.com/terraform/language/tests). Every run is plan-only, so no AWS account, credentials or emulator is needed:
+Tests use [Terraform's native testing framework](https://developer.hashicorp.com/terraform/language/tests). Every run is plan-only, so you do not need an AWS account, credentials or an emulator:
 
 ```bash
 terraform init
