@@ -160,6 +160,74 @@ run "test_empty_conditions_fails" {
   ]
 }
 
+run "test_repo_rejects_star" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    context = { group = "drape", env = "dev" }
+    repo    = "drape-io/*"
+  }
+
+  expect_failures = [
+    var.repo,
+  ]
+}
+
+run "test_repo_rejects_question_mark" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    context = { group = "drape", env = "dev" }
+    repo    = "drape-io/terraform-aws-accoun?"
+  }
+
+  expect_failures = [
+    var.repo,
+  ]
+}
+
+run "test_repo_rejects_extra_slash" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    context = { group = "drape", env = "dev" }
+    repo    = "drape-io/terraform/aws"
+  }
+
+  expect_failures = [
+    var.repo,
+  ]
+}
+
+run "test_repo_rejects_colon" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    context = { group = "drape", env = "dev" }
+    repo    = "drape-io/terraform-aws-account:ref:refs/heads/main"
+  }
+
+  expect_failures = [
+    var.repo,
+  ]
+}
+
 run "test_role_disabled" {
   command = plan
 
