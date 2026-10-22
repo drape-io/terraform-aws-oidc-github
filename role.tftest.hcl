@@ -1,5 +1,5 @@
-# Plan-only: no AWS account or emulator is needed. The endpoints point at an
-# unroutable address so an accidental API call fails instead of reaching AWS.
+# Plan-only: no AWS account or emulator is needed. The endpoints point at a
+# closed local port so an accidental API call fails instead of reaching AWS.
 provider "aws" {
   access_key = "test"
   secret_key = "test"
