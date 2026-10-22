@@ -6,15 +6,12 @@ module "ctx" {
 data "aws_partition" "current" {}
 
 locals {
-  tag_refs    = [for tag in var.git_tags : format("repo:%s:ref:refs/tags/%s", var.repo, tag)]
-  branch_refs = [for branch in var.branches : format("repo:%s:ref:refs/heads/%s", var.repo, branch)]
-  all_refs    = var.allow_all ? [format("repo:%s:*", var.repo)] : []
-  pr_refs     = var.allow_pull_requests ? [format("repo:%s:pull_request", var.repo)] : []
+  sub_prefix = "repo:${var.repo}"
   conditions = concat(
-    local.all_refs,
-    local.branch_refs,
-    local.tag_refs,
-    local.pr_refs,
+    var.allow_all ? ["${local.sub_prefix}:*"] : [],
+    [for branch in var.branches : "${local.sub_prefix}:ref:refs/heads/${branch}"],
+    [for tag in var.git_tags : "${local.sub_prefix}:ref:refs/tags/${tag}"],
+    var.allow_pull_requests ? ["${local.sub_prefix}:pull_request"] : [],
   )
 
   role_suffix = format("github-%s", replace(var.repo, "/", "-"))
@@ -70,7 +67,7 @@ resource "aws_iam_role" "github" {
 }
 
 resource "aws_iam_role_policy_attachment" "github" {
-  for_each   = module.ctx.enabled ? toset(var.attach_policies) : toset([])
+  for_each   = toset(module.ctx.enabled ? var.attach_policies : [])
   policy_arn = each.value
   role       = aws_iam_role.github[0].id
 }
