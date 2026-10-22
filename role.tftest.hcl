@@ -213,7 +213,7 @@ run "test_repo_rejects_colon" {
   }
 
   variables {
-    repo = "drape-io/terraform-aws-account:ref:refs/heads/main"
+    repo = "drape-io/terraform-aws-account:pull_request"
   }
 
   expect_failures = [
