@@ -157,6 +157,29 @@ run "test_repo_accepts_valid_names" {
   }
 }
 
+run "test_repo_accepts_immutable_form" {
+  command = plan
+
+  module {
+    source = "./modules/role"
+  }
+
+  variables {
+    context = { group = "prd", tenant = "ci", env = "publish" }
+    repo    = "octo-org@123456/octo-repo@456789"
+  }
+
+  assert {
+    condition     = output.role.name == "prd-ci-publish-github-octo-org@123456-octo-repo@456789"
+    error_message = "Role name for an immutable-form repo changed"
+  }
+
+  assert {
+    condition     = toset(flatten([jsondecode(output.policy_document.json)["Statement"][0]["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]])) == toset(["repo:octo-org@123456/octo-repo@456789:ref:refs/heads/main"])
+    error_message = "Trust policy for an immutable-form repo changed"
+  }
+}
+
 run "test_repo_rejects_star" {
   command = plan
 

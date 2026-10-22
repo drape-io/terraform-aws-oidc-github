@@ -14,9 +14,10 @@ variable "repo" {
 
   # GitHub names can't contain IAM StringLike wildcards (* and ?) or the ':'
   # that separates sub claim fields, so this keeps the trust policy to one repo.
+  # The optional @<digits> suffixes accept GitHub's immutable subject form.
   validation {
-    condition     = can(regex("^[A-Za-z0-9_-]+/[A-Za-z0-9._-]+$", var.repo))
-    error_message = "repo must be <owner>/<repo> using only characters GitHub allows in names (no wildcards, ':' or extra '/')."
+    condition     = can(regex("^[A-Za-z0-9_-]+(@[0-9]+)?/[A-Za-z0-9._-]+(@[0-9]+)?$", var.repo))
+    error_message = "repo must be <owner>/<repo> or <owner>@<id>/<repo>@<id>, using only characters GitHub allows in names (no wildcards, ':' or extra '/')."
   }
 }
 
