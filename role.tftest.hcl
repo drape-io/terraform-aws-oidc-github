@@ -16,7 +16,9 @@ provider "aws" {
 }
 
 variables {
+  context           = { group = "drape", env = "dev" }
   oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+  repo              = "drape-io/terraform-aws-account"
 }
 
 run "setup" {
@@ -32,11 +34,6 @@ run "test_branch_ref" {
 
   module {
     source = "./modules/role"
-  }
-
-  variables {
-    context = { group = "drape", env = "dev" }
-    repo    = "drape-io/terraform-aws-account"
   }
 
   assert {
@@ -58,8 +55,6 @@ run "test_complete_refs" {
   }
 
   variables {
-    context             = { group = "drape", env = "dev" }
-    repo                = "drape-io/terraform-aws-account"
     git_tags            = ["v1.0.0"]
     branches            = ["production"]
     allow_pull_requests = true
@@ -83,8 +78,6 @@ run "test_allow_all" {
   }
 
   variables {
-    context   = { group = "drape", env = "dev" }
-    repo      = "drape-io/terraform-aws-account"
     allow_all = true
     branches  = []
   }
@@ -103,8 +96,6 @@ run "test_iam_role_name" {
   }
 
   variables {
-    context = { group = "drape", env = "dev" }
-    repo    = "drape-io/terraform-aws-account"
     role_policies = {
       "default" : run.setup.policy
     }
@@ -124,19 +115,12 @@ run "test_iam_role_attach_policies" {
   }
 
   variables {
-    context         = { group = "drape", env = "dev" }
-    repo            = "drape-io/terraform-aws-account"
     attach_policies = run.setup.policy_arns
   }
 
   assert {
-    condition     = output.policy_attachments[run.setup.policy_arns[0]].policy_arn == run.setup.policy_arns[0]
-    error_message = "First custom policy wasn't attached"
-  }
-
-  assert {
-    condition     = output.policy_attachments[run.setup.policy_arns[1]].policy_arn == run.setup.policy_arns[1]
-    error_message = "Second custom policy wasn't attached"
+    condition     = toset([for a in output.policy_attachments : a.policy_arn]) == toset(run.setup.policy_arns)
+    error_message = "Exactly the given policies should be attached"
   }
 }
 
@@ -148,11 +132,7 @@ run "test_empty_conditions_fails" {
   }
 
   variables {
-    context             = { group = "drape", env = "dev" }
-    repo                = "drape-io/terraform-aws-account"
-    branches            = []
-    allow_all           = false
-    allow_pull_requests = false
+    branches = []
   }
 
   expect_failures = [
@@ -168,8 +148,7 @@ run "test_repo_rejects_star" {
   }
 
   variables {
-    context = { group = "drape", env = "dev" }
-    repo    = "drape-io/*"
+    repo = "drape-io/*"
   }
 
   expect_failures = [
@@ -185,8 +164,7 @@ run "test_repo_rejects_question_mark" {
   }
 
   variables {
-    context = { group = "drape", env = "dev" }
-    repo    = "drape-io/terraform-aws-accoun?"
+    repo = "drape-io/terraform-aws-accoun?"
   }
 
   expect_failures = [
@@ -202,8 +180,7 @@ run "test_repo_rejects_extra_slash" {
   }
 
   variables {
-    context = { group = "drape", env = "dev" }
-    repo    = "drape-io/terraform/aws"
+    repo = "drape-io/terraform/aws"
   }
 
   expect_failures = [
@@ -219,8 +196,7 @@ run "test_repo_rejects_colon" {
   }
 
   variables {
-    context = { group = "drape", env = "dev" }
-    repo    = "drape-io/terraform-aws-account:ref:refs/heads/main"
+    repo = "drape-io/terraform-aws-account:ref:refs/heads/main"
   }
 
   expect_failures = [
@@ -237,7 +213,6 @@ run "test_role_disabled" {
 
   variables {
     context = { enabled = false, group = "drape", env = "dev" }
-    repo    = "drape-io/terraform-aws-account"
   }
 
   assert {
